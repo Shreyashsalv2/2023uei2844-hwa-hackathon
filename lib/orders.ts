@@ -59,13 +59,15 @@ const VALID_ADD_ON_IDS = ADD_ONS.map((a) => a.id);
 function resolveVariant(
   variant: string
 ): { size: SizeId; colour: ColourId } | null {
-  const dash = variant.indexOf("-");
-  if (dash === -1) return null;
-  const sizeId = variant.slice(0, dash) as SizeId;
-  const colourId = variant.slice(dash + 1) as ColourId;
-  if (!SIZES.some((s) => s.id === sizeId)) return null;
-  if (!COLOURS.some((c) => c.id === colourId)) return null;
-  return { size: sizeId, colour: colourId };
+  for (const s of SIZES) {
+    if (variant.startsWith(`${s.id}-`)) {
+      const colourId = variant.slice(s.id.length + 1) as ColourId;
+      if (COLOURS.some((c) => c.id === colourId)) {
+        return { size: s.id, colour: colourId };
+      }
+    }
+  }
+  return null;
 }
 
 export function generateOrderId(): string {
