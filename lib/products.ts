@@ -38,7 +38,7 @@ export const SIZES: SizeOption[] = [
     label: "Small / Medium dogs",
     shortLabel: "Small / Medium",
     price: 4999,
-    weightRange: "10–25 kg",
+    weightRange: "5–25 kg (small breeds too)",
     dimensions: "28 × 28 × 22 cm",
     hopperCapacity: "3 kg of kibble",
     puzzleZones: 4,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import OrderDetails from "@/components/OrderDetails";
 
 export const metadata: Metadata = { title: "Order confirmation" };
 
@@ -9,11 +10,8 @@ export default async function OrderPage({
 }) {
   const { id } = await params;
   return (
-    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16">
-      <h1 className="font-display text-4xl font-bold">Order {id}</h1>
-      <p className="mt-4 text-bark-soft">
-        Order confirmation — coming in the next build step.
-      </p>
+    <div className="mx-auto max-w-6xl px-4 sm:px-6 py-14">
+      <OrderDetails id={id} />
     </div>
   );
 }

@@ -45,7 +45,7 @@ export default function ShopPage() {
             </h2>
             <p className="mt-2 text-bark-soft leading-relaxed">
               The self-resetting puzzle feeder. Sealed kibble hopper, rotating
-              tray, scheduled sessions. For dogs from 10 kg up.
+              tray, scheduled sessions. For dogs from 5 kg up.
             </p>
             <p className="mt-4 text-lg font-semibold">
               From {formatINR(from)}

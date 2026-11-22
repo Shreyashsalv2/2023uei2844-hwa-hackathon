@@ -87,28 +87,46 @@ export default function RefillConfigurator() {
           </div>
         </div>
 
-        <div className="mt-6">
-          <p className="text-sm font-semibold uppercase tracking-wider text-bark-soft">
-            Colour — {colour.label}
-          </p>
+        <fieldset className="mt-6">
+          <legend className="text-sm font-semibold uppercase tracking-wider text-bark-soft">
+            Colour — <span className="text-bark normal-case">{colour.label}</span>{" "}
+            <span className="normal-case font-normal">({colour.description})</span>
+          </legend>
           <div className="mt-3 flex gap-3">
             {COLOURS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                aria-label={c.label}
-                title={`${c.label} — ${c.description}`}
-                onClick={() => setColourId(c.id)}
-                className={`h-11 w-11 rounded-full border-2 transition-transform ${
-                  colourId === c.id
-                    ? "border-ember scale-110"
-                    : "border-sand hover:scale-105"
-                }`}
-                style={{ backgroundColor: c.swatch }}
-              />
+              <label key={c.id} className="cursor-pointer">
+                <input
+                  type="radio"
+                  name="colour"
+                  value={c.id}
+                  checked={colourId === c.id}
+                  onChange={() => setColourId(c.id)}
+                  className="sr-only peer"
+                />
+                <span
+                  className={`flex h-11 w-11 items-center justify-center rounded-full border-2 transition-transform ${
+                    colourId === c.id
+                      ? "border-ember scale-110"
+                      : "border-sand hover:scale-105"
+                  } peer-focus-visible:ring-2 peer-focus-visible:ring-ember peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-cream`}
+                  style={{ backgroundColor: c.swatch }}
+                >
+                  <span className="sr-only">
+                    {c.label} — {c.description}
+                  </span>
+                  {colourId === c.id && (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbf5ec" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </span>
+              </label>
             ))}
           </div>
-        </div>
+          <p aria-live="polite" className="sr-only">
+            Selected colour: {colour.label}
+          </p>
+        </fieldset>
 
         <div className="mt-6">
           <p className="text-sm font-semibold uppercase tracking-wider text-bark-soft">

@@ -8,6 +8,8 @@ import {
   getSize,
 } from "./products";
 
+export type { AddOnId, ColourId, SizeId } from "./products";
+
 export interface CartItem {
   productId: "refill";
   size: SizeId;
