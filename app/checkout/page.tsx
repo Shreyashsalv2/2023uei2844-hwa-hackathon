@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type AddOnId,
   type Cart,
@@ -29,6 +29,8 @@ interface FormState {
   pin: string;
 }
 
+type FieldErrors = Partial<Record<keyof FormState, string>>;
+
 const EMPTY_FORM: FormState = {
   name: "",
   email: "",
@@ -39,13 +41,62 @@ const EMPTY_FORM: FormState = {
   pin: "",
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PIN_RE = /^[1-9]\d{5}$/;
+
+function normalizePhone(raw: string): string {
+  let digits = raw.replace(/[\s\-().]/g, "");
+  if (digits.startsWith("+91")) digits = digits.slice(3);
+  else if (digits.startsWith("91") && digits.length === 12) digits = digits.slice(2);
+  else if (digits.startsWith("0") && digits.length === 11) digits = digits.slice(1);
+  return digits;
+}
+
+function validate(form: FormState): FieldErrors {
+  const errors: FieldErrors = {};
+  if (form.name.trim().length < 2) {
+    errors.name = "Please enter your full name.";
+  }
+  if (!EMAIL_RE.test(form.email.trim())) {
+    errors.email = "Please enter a valid email address.";
+  }
+  if (!/^[6-9]\d{9}$/.test(normalizePhone(form.phone))) {
+    errors.phone = "Enter a 10-digit Indian mobile number starting with 6–9.";
+  }
+  if (form.address.trim().length < 10) {
+    errors.address = "Please enter your complete street address (house, building, street).";
+  }
+  if (form.city.trim().length < 2) {
+    errors.city = "Please enter your city.";
+  }
+  if (!INDIAN_STATES.includes(form.state)) {
+    errors.state = "Please select your state.";
+  }
+  if (!PIN_RE.test(form.pin.trim())) {
+    errors.pin = "Enter a valid 6-digit PIN code.";
+  }
+  return errors;
+}
+
+const SERVER_ERROR_FIELD: { match: RegExp; field: keyof FormState }[] = [
+  { match: /full name/i, field: "name" },
+  { match: /email/i, field: "email" },
+  { match: /mobile|phone/i, field: "phone" },
+  { match: /street address/i, field: "address" },
+  { match: /city/i, field: "city" },
+  { match: /state/i, field: "state" },
+  { match: /PIN/i, field: "pin" },
+];
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<Cart>([]);
   const [ready, setReady] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     setCart(getCart());
@@ -55,14 +106,30 @@ export default function CheckoutPage() {
     return () => window.removeEventListener(CART_EVENT, sync);
   }, []);
 
-  const set = (field: keyof FormState) => (value: string) =>
+  const set = (field: keyof FormState) => (value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
+    setErrors((e) => {
+      if (!e[field]) return e;
+      const next = { ...e };
+      delete next[field];
+      return next;
+    });
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
+
+    const fieldErrors = validate(form);
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      const first = formRef.current?.querySelector<HTMLElement>("[aria-invalid='true']");
+      first?.focus();
+      return;
+    }
+
     setSubmitting(true);
-    setError(null);
+    setFormError(null);
 
     try {
       const items = cart.map((item: CartItem) => ({
@@ -82,10 +149,15 @@ export default function CheckoutPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        setError(
-          data?.error ??
-            "Something went wrong placing your order. Please try again."
-        );
+        const message: string = data?.error ?? "Something went wrong placing your order. Please try again.";
+        const mapped = SERVER_ERROR_FIELD.find((m) => m.match.test(message));
+        if (mapped) {
+          setErrors({ [mapped.field]: message });
+          const first = formRef.current?.querySelector<HTMLElement>("[aria-invalid='true']");
+          first?.focus();
+        } else {
+          setFormError(message);
+        }
         setSubmitting(false);
         return;
       }
@@ -93,7 +165,7 @@ export default function CheckoutPage() {
       clearCart();
       router.push(`/order/${data.orderId}`);
     } catch {
-      setError("Network error — could not reach the order service. Please try again.");
+      setFormError("Network error — could not reach the order service. Please try again.");
       setSubmitting(false);
     }
   }
@@ -131,65 +203,58 @@ export default function CheckoutPage() {
       <h1 className="font-display text-4xl font-bold">Checkout</h1>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-5">
-        <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-8" noValidate>
+        <form ref={formRef} onSubmit={handleSubmit} className="lg:col-span-3 space-y-8" noValidate>
           <section>
             <h2 className="font-display text-2xl font-bold">Delivery details</h2>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Field
+                id="name"
                 label="Full name"
                 value={form.name}
                 onChange={set("name")}
                 autoComplete="name"
-                required
+                error={errors.name}
               />
               <Field
+                id="email"
                 label="Email"
                 type="email"
                 value={form.email}
                 onChange={set("email")}
                 autoComplete="email"
                 placeholder="you@example.com"
-                required
+                error={errors.email}
               />
               <Field
+                id="phone"
                 label="Mobile number"
                 type="tel"
+                inputMode="tel"
                 value={form.phone}
                 onChange={(v) => set("phone")(v.replace(/[^\d+]/g, ""))}
                 autoComplete="tel"
                 placeholder="98765 43210"
                 hint="10 digits, starting 6–9"
-                required
+                error={errors.phone}
               />
-              <div>
-                <label htmlFor="state" className="block text-sm font-semibold">
-                  State <span className="text-ember">*</span>
-                </label>
-                <select
-                  id="state"
-                  required
-                  value={form.state}
-                  onChange={(e) => set("state")(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border-2 border-sand bg-cream px-4 py-2.5 text-bark focus:border-ember focus:outline-none"
-                >
-                  <option value="" disabled>
-                    Select your state
-                  </option>
-                  {INDIAN_STATES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
               <Field
+                id="state"
+                label="State"
+                type="select"
+                value={form.state}
+                onChange={set("state")}
+                error={errors.state}
+              />
+              <Field
+                id="city"
                 label="City"
                 value={form.city}
                 onChange={set("city")}
                 autoComplete="address-level2"
-                required
+                error={errors.city}
               />
               <Field
+                id="pin"
                 label="PIN code"
                 type="text"
                 inputMode="numeric"
@@ -197,21 +262,18 @@ export default function CheckoutPage() {
                 onChange={(v) => set("pin")(v.replace(/\D/g, "").slice(0, 6))}
                 autoComplete="postal-code"
                 placeholder="6 digits"
-                required
+                error={errors.pin}
               />
               <div className="sm:col-span-2">
-                <label htmlFor="address" className="block text-sm font-semibold">
-                  Street address <span className="text-ember">*</span>
-                </label>
-                <textarea
+                <Field
                   id="address"
-                  required
-                  rows={3}
+                  label="Street address"
+                  type="textarea"
                   value={form.address}
-                  onChange={(e) => set("address")(e.target.value)}
+                  onChange={set("address")}
                   autoComplete="street-address"
                   placeholder="House / flat, building, street, landmark"
-                  className="mt-1.5 w-full rounded-xl border-2 border-sand bg-cream px-4 py-2.5 text-bark focus:border-ember focus:outline-none"
+                  error={errors.address}
                 />
               </div>
             </div>
@@ -230,12 +292,12 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {error && (
+          {formError && (
             <p
               role="alert"
               className="rounded-xl border-2 border-ember-dark bg-parchment px-4 py-3 text-sm font-medium text-ember-dark"
             >
-              {error}
+              {formError}
             </p>
           )}
 
@@ -298,43 +360,91 @@ export default function CheckoutPage() {
 }
 
 function Field({
+  id,
   label,
   value,
   onChange,
   type = "text",
+  inputMode,
   autoComplete,
   placeholder,
   hint,
-  required,
-  inputMode,
+  error,
 }: {
+  id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
-  type?: string;
+  type?: "text" | "email" | "tel" | "select" | "textarea";
+  inputMode?: "numeric" | "tel" | "text";
   autoComplete?: string;
   placeholder?: string;
   hint?: string;
-  required?: boolean;
-  inputMode?: "numeric" | "tel" | "text";
+  error?: string;
 }) {
-  const id = label.toLowerCase().replace(/\s+/g, "-");
+  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
+  const inputClass = `mt-1.5 w-full rounded-xl border-2 bg-cream px-4 py-2.5 text-bark focus:outline-none ${
+    error ? "border-ember-dark" : "border-sand focus:border-ember"
+  }`;
+
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-semibold">
-        {label} {required && <span className="text-ember">*</span>}
+        {label} <span className="text-ember">*</span>
       </label>
-      <input
-        id={id}
-        type={type}
-        inputMode={inputMode}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1.5 w-full rounded-xl border-2 border-sand bg-cream px-4 py-2.5 text-bark focus:border-ember focus:outline-none"
-      />
-      {hint && <p className="mt-1 text-xs text-bark-soft">{hint}</p>}
+      {type === "select" ? (
+        <select
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          className={inputClass}
+        >
+          <option value="" disabled>
+            Select your state
+          </option>
+          {INDIAN_STATES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      ) : type === "textarea" ? (
+        <textarea
+          id={id}
+          rows={3}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          className={inputClass}
+        />
+      ) : (
+        <input
+          id={id}
+          type={type}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          className={inputClass}
+        />
+      )}
+      {error ? (
+        <p id={`${id}-error`} className="mt-1 text-xs font-medium text-ember-dark">
+          {error}
+        </p>
+      ) : hint ? (
+        <p id={`${id}-hint`} className="mt-1 text-xs text-bark-soft">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }
