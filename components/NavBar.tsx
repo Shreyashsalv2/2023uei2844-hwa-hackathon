@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import CartBadge from "./CartBadge";
 
 const links = [
   { href: "/shop", label: "Shop" },
@@ -38,12 +39,7 @@ export default function NavBar() {
               {l.label}
             </Link>
           ))}
-          <Link
-            href="/shop"
-            className="rounded-full bg-ember px-5 py-2 text-sm font-semibold text-cream hover:bg-ember-dark transition-colors"
-          >
-            Shop Refill
-          </Link>
+          <CartBadge />
         </div>
 
         <button
@@ -83,11 +79,11 @@ export default function NavBar() {
             </Link>
           ))}
           <Link
-            href="/shop"
+            href="/cart"
             className="mt-2 rounded-full bg-ember px-5 py-2 text-center text-sm font-semibold text-cream"
             onClick={() => setOpen(false)}
           >
-            Shop Refill
+            Cart
           </Link>
         </div>
       )}
