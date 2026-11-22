@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateOrderId, parseOrderPayload } from "@/lib/orders";
-import { saveOrder, storageMode } from "@/lib/store";
+import { saveOrder } from "@/lib/store";
 
 export const runtime = "nodejs";
 
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(
-    { orderId: order.id, storage: storageMode(), order },
+    { orderId: order.id, order },
     { status: 201 }
   );
 }

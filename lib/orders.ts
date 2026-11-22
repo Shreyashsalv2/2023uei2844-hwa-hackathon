@@ -1,9 +1,12 @@
 import {
   ADD_ONS,
+  COLOURS,
   SIZES,
   getAddOn,
   getColour,
   getSize,
+  type ColourId,
+  type SizeId,
 } from "./products";
 import { INDIAN_STATES } from "./india";
 
@@ -46,6 +49,24 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PIN_RE = /^[1-9]\d{5}$/;
 const PHONE_RE = /^[6-9]\d{9}$/;
 const MAX_ITEMS = 20;
+
+export const VALID_VARIANTS: string[] = SIZES.flatMap((s) =>
+  COLOURS.map((c) => `${s.id}-${c.id}`)
+);
+
+const VALID_ADD_ON_IDS = ADD_ONS.map((a) => a.id);
+
+function resolveVariant(
+  variant: string
+): { size: SizeId; colour: ColourId } | null {
+  const dash = variant.indexOf("-");
+  if (dash === -1) return null;
+  const sizeId = variant.slice(0, dash) as SizeId;
+  const colourId = variant.slice(dash + 1) as ColourId;
+  if (!SIZES.some((s) => s.id === sizeId)) return null;
+  if (!COLOURS.some((c) => c.id === colourId)) return null;
+  return { size: sizeId, colour: colourId };
+}
 
 export function generateOrderId(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -97,26 +118,53 @@ export function parseOrderPayload(payload: unknown): ParseResult {
     if (entry.productId !== "refill") {
       return { ok: false, status: 400, error: "Unknown product." };
     }
-    const size = getSize(entry.size as never);
-    if (!SIZES.some((s) => s.id === entry.size)) {
-      return { ok: false, status: 400, error: "Unknown size selected." };
+
+    let sizeId: SizeId;
+    let colourId: ColourId;
+    const variant = typeof entry.variant === "string" ? entry.variant : null;
+
+    if (variant) {
+      const resolved = resolveVariant(variant);
+      if (!resolved) {
+        return {
+          ok: false,
+          status: 400,
+          error: `Unknown variant "${variant}". Valid variants: ${VALID_VARIANTS.join(", ")}.`,
+        };
+      }
+      sizeId = resolved.size;
+      colourId = resolved.colour;
+    } else if (
+      SIZES.some((s) => s.id === entry.size) &&
+      COLOURS.some((c) => c.id === entry.colour)
+    ) {
+      sizeId = entry.size as SizeId;
+      colourId = entry.colour as ColourId;
+    } else {
+      return {
+        ok: false,
+        status: 400,
+        error: `Each item must include a "variant" (e.g. "small-medium-clay") or a valid "size" and "colour". Valid variants: ${VALID_VARIANTS.join(", ")}.`,
+      };
     }
-    if (!["clay", "moss", "sandstone"].includes(entry.colour as string)) {
-      return { ok: false, status: 400, error: "Unknown colour selected." };
-    }
-    const rawAddOns = entry.addOns ?? [];
+
+    const rawAddOns = entry["add-ons"] ?? entry.addOns ?? [];
     if (!Array.isArray(rawAddOns)) {
       return { ok: false, status: 400, error: "Add-ons must be a list." };
     }
     for (const addOnId of rawAddOns) {
-      if (!ADD_ONS.some((a) => a.id === addOnId)) {
-        return { ok: false, status: 400, error: "Unknown add-on selected." };
+      if (!VALID_ADD_ON_IDS.includes(addOnId as never)) {
+        return {
+          ok: false,
+          status: 400,
+          error: `Unknown add-on "${String(addOnId)}". Valid add-ons: ${VALID_ADD_ON_IDS.join(", ")}.`,
+        };
       }
     }
     const addOns = [...new Set(rawAddOns as string[])];
 
-    const qty = entry.qty;
-    if (typeof qty !== "number" || Number.isNaN(qty)) {
+    const qty = entry.quantity ?? entry.qty;
+    if (qty === undefined || typeof qty !== "number" || Number.isNaN(qty)) {
       return { ok: false, status: 400, error: "Quantity must be a number." };
     }
     if (!Number.isInteger(qty)) {
@@ -126,11 +174,12 @@ export function parseOrderPayload(payload: unknown): ParseResult {
       return { ok: false, status: 400, error: "Quantity must be between 1 and 10." };
     }
 
+    const size = getSize(sizeId);
     const unitPrice = size.price + addOns.reduce((sum, id) => sum + getAddOn(id as never).price, 0);
     parsedItems.push({
       productId: "refill",
       size: size.id,
-      colour: getColour(entry.colour as never).id,
+      colour: getColour(colourId).id,
       addOns,
       qty,
       unitPrice,

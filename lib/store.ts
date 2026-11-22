@@ -1,9 +1,8 @@
 import type { OrderRecord } from "./orders";
 
-const TTL_SECONDS = 60 * 60 * 24 * 30;
 const keyFor = (id: string) => `order:${id}`;
 
-const memory = new Map<string, { order: OrderRecord; expires: number }>();
+const memory = new Map<string, OrderRecord>();
 
 function upstashConfig(): { url: string; token: string } | null {
   const url =
@@ -14,30 +13,20 @@ function upstashConfig(): { url: string; token: string } | null {
   return { url, token };
 }
 
-export function storageMode(): "upstash" | "memory" {
-  return upstashConfig() ? "upstash" : "memory";
-}
-
 export async function saveOrder(order: OrderRecord): Promise<void> {
   const cfg = upstashConfig();
   if (cfg) {
     const encoded = encodeURIComponent(JSON.stringify(order));
-    const res = await fetch(
-      `${cfg.url}/set/${keyFor(order.id)}/${encoded}/ex/${TTL_SECONDS}`,
-      {
-        headers: { Authorization: `Bearer ${cfg.token}` },
-        cache: "no-store",
-      }
-    );
+    const res = await fetch(`${cfg.url}/set/${keyFor(order.id)}/${encoded}`, {
+      headers: { Authorization: `Bearer ${cfg.token}` },
+      cache: "no-store",
+    });
     if (!res.ok) {
       throw new Error(`Upstash write failed with status ${res.status}`);
     }
     return;
   }
-  memory.set(order.id, {
-    order,
-    expires: Date.now() + TTL_SECONDS * 1000,
-  });
+  memory.set(order.id, order);
 }
 
 export async function getOrder(id: string): Promise<OrderRecord | null> {
@@ -66,9 +55,5 @@ export async function getOrder(id: string): Promise<OrderRecord | null> {
   }
   const entry = memory.get(id);
   if (!entry) return null;
-  if (Date.now() > entry.expires) {
-    memory.delete(id);
-    return null;
-  }
-  return entry.order;
+  return entry;
 }

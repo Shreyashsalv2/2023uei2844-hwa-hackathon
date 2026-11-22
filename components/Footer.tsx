@@ -15,6 +15,7 @@ const companyLinks = [
 const supportLinks = [
   { href: "/shipping-and-returns", label: "Shipping & returns" },
   { href: "/privacy", label: "Privacy" },
+  { href: "/api-docs", label: "API docs" },
 ];
 
 export default function Footer() {
