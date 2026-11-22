@@ -21,15 +21,14 @@ export function storageMode(): "upstash" | "memory" {
 export async function saveOrder(order: OrderRecord): Promise<void> {
   const cfg = upstashConfig();
   if (cfg) {
-    const res = await fetch(`${cfg.url}/set/${keyFor(order.id)}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${cfg.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ value: JSON.stringify(order), ex: TTL_SECONDS }),
-      cache: "no-store",
-    });
+    const encoded = encodeURIComponent(JSON.stringify(order));
+    const res = await fetch(
+      `${cfg.url}/set/${keyFor(order.id)}/${encoded}/ex/${TTL_SECONDS}`,
+      {
+        headers: { Authorization: `Bearer ${cfg.token}` },
+        cache: "no-store",
+      }
+    );
     if (!res.ok) {
       throw new Error(`Upstash write failed with status ${res.status}`);
     }
@@ -50,9 +49,17 @@ export async function getOrder(id: string): Promise<OrderRecord | null> {
         cache: "no-store",
       });
       if (!res.ok) return null;
-      const data = (await res.json()) as { result?: string | null };
+      const data = (await res.json()) as {
+        result?: string | { value?: string } | null;
+      };
       if (!data.result) return null;
-      return JSON.parse(data.result) as OrderRecord;
+      if (typeof data.result === "string") {
+        return JSON.parse(data.result) as OrderRecord;
+      }
+      if (typeof data.result.value === "string") {
+        return JSON.parse(data.result.value) as OrderRecord;
+      }
+      return null;
     } catch {
       return null;
     }
