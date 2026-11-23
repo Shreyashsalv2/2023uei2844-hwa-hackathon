@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import FeederArt from "@/components/FeederArt";
+import HeroFeeder from "@/components/HeroFeeder";
+import Reveal from "@/components/Reveal";
 import SessionTimeline from "@/components/SessionTimeline";
 import TrayDemo from "@/components/TrayDemo";
 import ComparisonTable from "@/components/ComparisonTable";
@@ -84,14 +86,14 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex justify-center">
-            <FeederArt body="#c96f4a" edge="#a8532f" className="w-full max-w-md h-auto" />
+            <HeroFeeder body="#c96f4a" edge="#a8532f" />
           </div>
         </div>
       </section>
 
       <section className="bg-parchment border-y border-sand">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
-          <div className="max-w-3xl">
+          <Reveal className="max-w-3xl">
             <p className="text-sm font-semibold uppercase tracking-widest text-ember">
               The problem
             </p>
@@ -109,7 +111,7 @@ export default function HomePage() {
               The toy isn&apos;t the problem. The refilling is. So Refill
               does the refilling itself.
             </p>
-          </div>
+          </Reveal>
 
           <div className="mt-12 grid gap-6 sm:grid-cols-3">
             {[
@@ -127,6 +129,7 @@ export default function HomePage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
+        <Reveal>
         <p className="text-sm font-semibold uppercase tracking-widest text-ember">
           How it works
         </p>
@@ -142,25 +145,33 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+        </Reveal>
+        <Reveal delay={100}>
         <p className="mt-6 text-sm text-bark-soft">
           Want the full detail — including the session scheduler?{" "}
           <Link href="/how-it-works" className="font-semibold text-ember-dark hover:text-ember underline underline-offset-4">
             See how it works
           </Link>
         </p>
+        </Reveal>
       </section>
 
       <section className="bg-parchment border-y border-sand">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
-          <SessionTimeline />
+          <Reveal>
+            <SessionTimeline />
+          </Reveal>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 py-20">
-        <TrayDemo />
+        <Reveal>
+          <TrayDemo />
+        </Reveal>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-20">
+        <Reveal>
         <p className="text-sm font-semibold uppercase tracking-widest text-ember">
           Refill vs. the toy drawer
         </p>
@@ -170,9 +181,11 @@ export default function HomePage() {
         <div className="mt-8">
           <ComparisonTable />
         </div>
+        </Reveal>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-20">
+        <Reveal>
         <h2 className="font-display text-3xl sm:text-4xl font-bold">
           Common questions
         </h2>
@@ -195,6 +208,7 @@ export default function HomePage() {
           </Link>
           .
         </p>
+        </Reveal>
       </section>
 
       <section className="bg-ember">

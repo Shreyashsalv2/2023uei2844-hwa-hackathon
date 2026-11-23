@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const ZONES = 6;
 
+const INITIAL_PATTERN: boolean[] = [true, false, true, true, false, true];
+
 function newPattern(): boolean[] {
   const pattern = Array.from({ length: ZONES }, () => Math.random() > 0.35);
   if (!pattern.some(Boolean)) pattern[Math.floor(Math.random() * ZONES)] = true;
@@ -11,7 +13,7 @@ function newPattern(): boolean[] {
 }
 
 export default function TrayDemo() {
-  const [pattern, setPattern] = useState<boolean[]>(() => newPattern());
+  const [pattern, setPattern] = useState<boolean[]>(INITIAL_PATTERN);
   const [revealed, setRevealed] = useState<boolean[]>(() => Array(ZONES).fill(false));
   const [level, setLevel] = useState(1);
   const [spinning, setSpinning] = useState(false);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import FeederArt from "@/components/FeederArt";
+import HeroFeeder from "@/components/HeroFeeder";
 import {
   COLOURS,
   MAX_FREE_DELIVERY_NOTE,
@@ -20,6 +20,7 @@ export default function RefillConfigurator() {
   const [qty, setQty] = useState(1);
   const [scentPod, setScentPod] = useState(false);
   const [added, setAdded] = useState(false);
+  const [pop, setPop] = useState(false);
 
   const size = getSize(sizeId);
   const colour = COLOURS.find((c) => c.id === colourId)!;
@@ -27,6 +28,8 @@ export default function RefillConfigurator() {
   const total = unitPrice * qty;
 
   const handleAdd = () => {
+    setPop(true);
+    window.setTimeout(() => setPop(false), 500);
     addToCart({
       productId: "refill",
       size: sizeId,
@@ -41,11 +44,7 @@ export default function RefillConfigurator() {
   return (
     <div className="grid gap-10 lg:grid-cols-2">
       <div className="rounded-3xl bg-parchment border border-sand p-8 flex items-center justify-center">
-        <FeederArt
-          body={colour.swatch}
-          edge={colour.edge}
-          className="w-full max-w-md h-auto"
-        />
+        <HeroFeeder body={colour.swatch} edge={colour.edge} />
       </div>
 
       <div>
@@ -71,6 +70,7 @@ export default function RefillConfigurator() {
               <button
                 key={s.id}
                 type="button"
+                aria-pressed={sizeId === s.id}
                 onClick={() => setSizeId(s.id)}
                 className={`rounded-2xl border-2 p-4 text-left transition-colors ${
                   sizeId === s.id
@@ -198,9 +198,9 @@ export default function RefillConfigurator() {
             <button
               type="button"
               onClick={handleAdd}
-              className="flex-1 rounded-full bg-ember px-8 py-3 text-base font-semibold text-cream hover:bg-ember-dark transition-colors"
+              className={`flex-1 rounded-full bg-ember px-8 py-3 text-base font-semibold text-cream hover:bg-ember-dark transition-colors ${pop ? "btn-pop" : ""}`}
             >
-              Add to cart
+              {added ? "Added ✓" : "Add to cart"}
             </button>
             <Link
               href="/cart"

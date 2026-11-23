@@ -25,7 +25,10 @@ export default function CartBadge() {
     >
       Cart
       {count > 0 && (
-        <span className="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-moss px-1 text-xs font-bold text-cream">
+        <span
+          key={count}
+          className="badge-pop absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-moss px-1 text-xs font-bold text-cream"
+        >
           {count}
         </span>
       )}

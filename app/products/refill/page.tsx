@@ -39,7 +39,7 @@ export default function RefillPage() {
                   ["Power", "Rechargeable battery (up to 7 days) + USB-C mains"],
                   ["Materials", "Food-safe ABS shell, silicone tray liners"],
                   ["Warranty", "1 year — motor, hopper and tray"],
-                  ["Cleaning", "Tray and hopper lid are rinse-safe"],
+                  ["Cleaning", "Tray and hopper lid are dishwasher-safe (top rack)"],
                 ].map(([term, desc]) => (
                   <div key={term} className="flex justify-between gap-6 py-2.5">
                     <dt className="text-bark-soft shrink-0">{term}</dt>

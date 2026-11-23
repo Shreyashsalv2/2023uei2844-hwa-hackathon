@@ -12,7 +12,7 @@ interface Band {
 
 const BANDS: Band[] = [
   { max: 10, label: "Small (up to 10 kg)", sessions: 3, gramsPerSession: 50, minutes: 20 },
-  { max: 25, label: "Small / Medium (10–25 kg)", sessions: 4, gramsPerSession: 85, minutes: 25 },
+  { max: 25, label: "Small / Medium (5–25 kg)", sessions: 4, gramsPerSession: 85, minutes: 25 },
   { max: 100, label: "Large (25 kg+)", sessions: 4, gramsPerSession: 140, minutes: 30 },
 ];
 

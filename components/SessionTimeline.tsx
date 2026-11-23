@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
 const HOURS = ["9 AM", "10", "11", "12", "1 PM", "2", "3", "4", "5 PM"];
 
 const SESSIONS = [
@@ -8,6 +12,29 @@ const SESSIONS = [
 ];
 
 export default function SessionTimeline() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setShown(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShown(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.3 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div className="rounded-3xl border border-sand bg-parchment p-7 sm:p-10">
       <h3 className="font-display text-2xl sm:text-3xl font-bold">
@@ -19,20 +46,35 @@ export default function SessionTimeline() {
         hopper stays sealed, so your dog rests as easily as they play.
       </p>
 
-      <div className="mt-10">
+      <div ref={ref} className="mt-10">
         <div className="relative h-24">
           <div className="absolute top-10 left-0 right-0 h-1.5 rounded-full bg-sand" />
-          {SESSIONS.map((s) => (
+          <div
+            className={`absolute top-10 left-0 h-1.5 rounded-full bg-ember timeline-fill ${
+              shown ? "timeline-fill-on" : ""
+            }`}
+          />
+          {SESSIONS.map((s, i) => (
             <div
               key={s.label}
               className="absolute -translate-x-1/2 flex flex-col items-center"
               style={{ left: `${(s.at / 8) * 100}%`, top: 0 }}
             >
-              <div className="rounded-full bg-ember text-cream text-xs font-semibold px-3 py-1.5 whitespace-nowrap">
+              <div
+                className={`rounded-full bg-ember text-cream text-xs font-semibold px-3 py-1.5 whitespace-nowrap timeline-dot ${
+                  shown ? "timeline-dot-on" : ""
+                }`}
+                style={{ transitionDelay: `${400 + i * 350}ms` }}
+              >
                 {s.label}
               </div>
               <div className="w-0.5 h-5 bg-ember/60" />
-              <div className="w-5 h-5 rounded-full border-4 border-ember bg-cream -mt-0.5" />
+              <div
+                className={`w-5 h-5 rounded-full border-4 border-ember bg-cream -mt-0.5 timeline-dot ${
+                  shown ? "timeline-dot-on" : ""
+                }`}
+                style={{ transitionDelay: `${550 + i * 350}ms` }}
+              />
               <p className="mt-2 text-xs text-bark-soft whitespace-nowrap">{s.note}</p>
             </div>
           ))}

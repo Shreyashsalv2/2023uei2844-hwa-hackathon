@@ -10,7 +10,7 @@ export default function FeederArt({ body, edge, className }: FeederArtProps) {
       viewBox="0 0 320 260"
       role="img"
       aria-label="Illustration of the Refill puzzle feeder"
-      className={className}
+      className={`feeder-art ${className ?? ""}`}
     >
       <ellipse cx="160" cy="238" rx="120" ry="10" fill="#3d2b1f" opacity="0.08" />
       <rect x="60" y="150" width="200" height="78" rx="30" fill={body} />
