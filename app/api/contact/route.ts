@@ -36,14 +36,20 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json(
-      { error: "Malformed JSON: the request body could not be parsed." },
+      {
+        error: "validation failed",
+        fields: { body: "malformed JSON: the request body could not be parsed" },
+      },
       { status: 400 }
     );
   }
 
-  if (typeof body !== "object" || body === null) {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return NextResponse.json(
-      { error: "Request body must be a JSON object." },
+      {
+        error: "validation failed",
+        fields: { body: "request body must be a JSON object" },
+      },
       { status: 400 }
     );
   }
@@ -54,18 +60,22 @@ export async function POST(req: NextRequest) {
   const cleanSubject = typeof subject === "string" ? subject.trim() : "";
   const cleanMessage = typeof message === "string" ? message.trim() : "";
 
+  const fields: Record<string, string> = {};
   if (cleanName.length < 2 || cleanName.length > 80) {
-    return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
+    fields["name"] = "enter your name (2–80 characters)";
   }
   if (!EMAIL_RE.test(cleanEmail)) {
-    return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
+    fields["email"] = "invalid email";
   }
   if (cleanSubject.length < 2 || cleanSubject.length > 120) {
-    return NextResponse.json({ error: "Please enter a subject." }, { status: 400 });
+    fields["subject"] = "enter a subject (2–120 characters)";
   }
   if (cleanMessage.length < 10 || cleanMessage.length > 2000) {
+    fields["message"] = "enter a message of at least 10 characters";
+  }
+  if (Object.keys(fields).length > 0) {
     return NextResponse.json(
-      { error: "Please enter a message of at least 10 characters." },
+      { error: "validation failed", fields },
       { status: 400 }
     );
   }

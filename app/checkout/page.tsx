@@ -78,15 +78,25 @@ function validate(form: FormState): FieldErrors {
   return errors;
 }
 
-const SERVER_ERROR_FIELD: { match: RegExp; field: keyof FormState }[] = [
-  { match: /full name/i, field: "name" },
-  { match: /email/i, field: "email" },
-  { match: /mobile|phone/i, field: "phone" },
-  { match: /street address/i, field: "address" },
-  { match: /city/i, field: "city" },
-  { match: /state/i, field: "state" },
-  { match: /PIN/i, field: "pin" },
-];
+function fieldsFromServer(
+  fields: Record<string, string> | undefined
+): { fieldErrors: FieldErrors; other: string[] } {
+  const fieldErrors: FieldErrors = {};
+  const other: string[] = [];
+  for (const [key, message] of Object.entries(fields ?? {})) {
+    const dot = key.indexOf(".");
+    const head = dot === -1 ? key : key.slice(0, dot);
+    if (head === "customer" && dot !== -1) {
+      const field = key.slice(dot + 1) as keyof FormState;
+      if (field in EMPTY_FORM) {
+        fieldErrors[field] = message;
+        continue;
+      }
+    }
+    other.push(`${key}: ${message}`);
+  }
+  return { fieldErrors, other };
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -149,14 +159,17 @@ export default function CheckoutPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        const message: string = data?.error ?? "Something went wrong placing your order. Please try again.";
-        const mapped = SERVER_ERROR_FIELD.find((m) => m.match.test(message));
-        if (mapped) {
-          setErrors({ [mapped.field]: message });
+        const { fieldErrors, other } = fieldsFromServer(data?.fields);
+        if (Object.keys(fieldErrors).length > 0) {
+          setErrors(fieldErrors);
           const first = formRef.current?.querySelector<HTMLElement>("[aria-invalid='true']");
           first?.focus();
         } else {
-          setFormError(message);
+          setFormError(
+            other.length > 0
+              ? other.join(" · ")
+              : data?.error ?? "Something went wrong placing your order. Please try again."
+          );
         }
         setSubmitting(false);
         return;

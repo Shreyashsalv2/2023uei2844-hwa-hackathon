@@ -41,9 +41,11 @@ export interface OrderRecord {
   status: "confirmed";
 }
 
+export type FieldErrors = Record<string, string>;
+
 export type ParseResult =
   | { ok: true; order: Omit<OrderRecord, "id" | "createdAt"> }
-  | { ok: false; status: number; error: string };
+  | { ok: false; status: number; error: string; fields?: FieldErrors };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PIN_RE = /^[1-9]\d{5}$/;
@@ -100,144 +102,151 @@ function cleanString(value: unknown): string {
 
 export function parseOrderPayload(payload: unknown): ParseResult {
   if (!isRecord(payload)) {
-    return { ok: false, status: 400, error: "Request body must be a JSON object." };
+    return {
+      ok: false,
+      status: 400,
+      error: "validation failed",
+      fields: { body: "request body must be a JSON object" },
+    };
   }
 
   const { customer, items } = payload;
+  const fields: FieldErrors = {};
+  const parsedItems: OrderItem[] = [];
 
   if (!Array.isArray(items) || items.length === 0) {
-    return { ok: false, status: 400, error: "Your cart is empty." };
-  }
-  if (items.length > MAX_ITEMS) {
-    return { ok: false, status: 400, error: "Too many line items in one order." };
-  }
-
-  const parsedItems: OrderItem[] = [];
-  for (const entry of items) {
-    if (!isRecord(entry)) {
-      return { ok: false, status: 400, error: "Each cart item must be an object." };
-    }
-    if (entry.productId !== "refill") {
-      return { ok: false, status: 400, error: "Unknown product." };
-    }
-
-    let sizeId: SizeId;
-    let colourId: ColourId;
-    const variant = typeof entry.variant === "string" ? entry.variant : null;
-
-    if (variant) {
-      const resolved = resolveVariant(variant);
-      if (!resolved) {
-        return {
-          ok: false,
-          status: 400,
-          error: `Unknown variant "${variant}". Valid variants: ${VALID_VARIANTS.join(", ")}.`,
-        };
+    fields["items"] = "cart is empty";
+  } else if (items.length > MAX_ITEMS) {
+    fields["items"] = "too many line items in one order";
+  } else {
+    items.forEach((entry, i) => {
+      if (!isRecord(entry)) {
+        fields[`items.${i}`] = "each cart item must be an object";
+        return;
       }
-      sizeId = resolved.size;
-      colourId = resolved.colour;
-    } else if (
-      SIZES.some((s) => s.id === entry.size) &&
-      COLOURS.some((c) => c.id === entry.colour)
-    ) {
-      sizeId = entry.size as SizeId;
-      colourId = entry.colour as ColourId;
-    } else {
-      return {
-        ok: false,
-        status: 400,
-        error: `Each item must include a "variant" (e.g. "small-medium-clay") or a valid "size" and "colour". Valid variants: ${VALID_VARIANTS.join(", ")}.`,
-      };
-    }
-
-    const rawAddOns = entry["add-ons"] ?? entry.addOns ?? [];
-    if (!Array.isArray(rawAddOns)) {
-      return { ok: false, status: 400, error: "Add-ons must be a list." };
-    }
-    for (const addOnId of rawAddOns) {
-      if (!VALID_ADD_ON_IDS.includes(addOnId as never)) {
-        return {
-          ok: false,
-          status: 400,
-          error: `Unknown add-on "${String(addOnId)}". Valid add-ons: ${VALID_ADD_ON_IDS.join(", ")}.`,
-        };
+      if (entry.productId !== "refill") {
+        fields[`items.${i}.productId`] = "unknown product (only \"refill\" is sold)";
+        return;
       }
-    }
-    const addOns = [...new Set(rawAddOns as string[])];
 
-    const qty = entry.quantity ?? entry.qty;
-    if (qty === undefined || typeof qty !== "number" || Number.isNaN(qty)) {
-      return { ok: false, status: 400, error: "Quantity must be a number." };
-    }
-    if (!Number.isInteger(qty)) {
-      return { ok: false, status: 400, error: "Quantity must be a whole number." };
-    }
-    if (qty < 1 || qty > 10) {
-      return { ok: false, status: 400, error: "Quantity must be between 1 and 10." };
-    }
+      let sizeId: SizeId | null = null;
+      let colourId: ColourId | null = null;
+      const variant = typeof entry.variant === "string" ? entry.variant : null;
 
-    const size = getSize(sizeId);
-    const unitPrice = size.price + addOns.reduce((sum, id) => sum + getAddOn(id as never).price, 0);
-    parsedItems.push({
-      productId: "refill",
-      size: size.id,
-      colour: getColour(colourId).id,
-      addOns,
-      qty,
-      unitPrice,
+      if (variant) {
+        const resolved = resolveVariant(variant);
+        if (!resolved) {
+          fields[`items.${i}.variant`] = `unknown variant "${variant}" (valid variants: ${VALID_VARIANTS.join(", ")})`;
+        } else {
+          sizeId = resolved.size;
+          colourId = resolved.colour;
+        }
+      } else if (
+        SIZES.some((s) => s.id === entry.size) &&
+        COLOURS.some((c) => c.id === entry.colour)
+      ) {
+        sizeId = entry.size as SizeId;
+        colourId = entry.colour as ColourId;
+      } else {
+        fields[`items.${i}.variant`] = `missing variant: each item needs a "variant" (e.g. "large-moss") or a valid "size" and "colour" (valid variants: ${VALID_VARIANTS.join(", ")})`;
+      }
+
+      const rawAddOns = entry["add-ons"] ?? entry.addOns ?? [];
+      if (!Array.isArray(rawAddOns)) {
+        fields[`items.${i}.add-ons`] = "add-ons must be a list";
+      } else {
+        for (const addOnId of rawAddOns) {
+          if (!VALID_ADD_ON_IDS.includes(addOnId as never)) {
+            fields[`items.${i}.add-ons`] = `unknown add-on "${String(addOnId)}" (valid add-ons: ${VALID_ADD_ON_IDS.join(", ")})`;
+            break;
+          }
+        }
+      }
+      const addOns = Array.isArray(rawAddOns) ? [...new Set(rawAddOns as string[])] : [];
+
+      const qty = entry.quantity ?? entry.qty;
+      if (qty === undefined || typeof qty !== "number" || Number.isNaN(qty)) {
+        fields[`items.${i}.quantity`] = "quantity must be a number";
+      } else if (!Number.isInteger(qty)) {
+        fields[`items.${i}.quantity`] = "quantity must be a whole number";
+      } else if (qty < 1 || qty > 10) {
+        fields[`items.${i}.quantity`] = "quantity must be between 1 and 10";
+      }
+
+      if (sizeId && colourId && fields[`items.${i}.quantity`] === undefined && fields[`items.${i}.add-ons`] === undefined) {
+        const size = getSize(sizeId);
+        const unitPrice = size.price + addOns.reduce((sum, id) => sum + getAddOn(id as never).price, 0);
+        parsedItems.push({
+          productId: "refill",
+          size: size.id,
+          colour: getColour(colourId).id,
+          addOns,
+          qty: qty as number,
+          unitPrice,
+        });
+      }
     });
   }
 
   if (!isRecord(customer)) {
-    return { ok: false, status: 400, error: "Delivery details are missing." };
+    fields["customer"] = "delivery details are missing";
+  } else {
+    const name = cleanString(customer.name);
+    if (name.length < 2 || name.length > 80) {
+      fields["customer.name"] = "enter your full name (2–80 characters)";
+    }
+
+    const email = cleanString(customer.email);
+    if (!EMAIL_RE.test(email) || email.length > 120) {
+      fields["customer.email"] = "invalid email";
+    }
+
+    const phone = normalizePhone(customer.phone);
+    if (!phone) {
+      fields["customer.phone"] = "invalid phone: use a 10-digit Indian mobile number starting with 6–9";
+    }
+
+    const address = cleanString(customer.address);
+    if (address.length < 10 || address.length > 200) {
+      fields["customer.address"] = "enter your full street address (10–200 characters)";
+    }
+
+    const city = cleanString(customer.city);
+    if (city.length < 2 || city.length > 60) {
+      fields["customer.city"] = "enter your city";
+    }
+
+    const state = cleanString(customer.state);
+    if (!INDIAN_STATES.includes(state)) {
+      fields["customer.state"] = "invalid state: choose one from the Indian states list";
+    }
+
+    const pin = cleanString(customer.pin);
+    if (!PIN_RE.test(pin)) {
+      fields["customer.pin"] = "invalid PIN: use a 6-digit PIN code";
+    }
   }
 
-  const name = cleanString(customer.name);
-  if (name.length < 2 || name.length > 80) {
-    return { ok: false, status: 400, error: "Please enter your full name." };
+  if (Object.keys(fields).length > 0) {
+    return { ok: false, status: 400, error: "validation failed", fields };
   }
 
-  const email = cleanString(customer.email);
-  if (!EMAIL_RE.test(email) || email.length > 120) {
-    return { ok: false, status: 400, error: "Please enter a valid email address." };
-  }
-
-  const phone = normalizePhone(customer.phone);
-  if (!phone) {
-    return {
-      ok: false,
-      status: 400,
-      error: "Please enter a valid 10-digit Indian mobile number.",
-    };
-  }
-
-  const address = cleanString(customer.address);
-  if (address.length < 10 || address.length > 200) {
-    return { ok: false, status: 400, error: "Please enter your full street address." };
-  }
-
-  const city = cleanString(customer.city);
-  if (city.length < 2 || city.length > 60) {
-    return { ok: false, status: 400, error: "Please enter your city." };
-  }
-
-  const state = cleanString(customer.state);
-  if (!INDIAN_STATES.includes(state)) {
-    return { ok: false, status: 400, error: "Please select a valid state." };
-  }
-
-  const pin = cleanString(customer.pin);
-  if (!PIN_RE.test(pin)) {
-    return { ok: false, status: 400, error: "Please enter a valid 6-digit PIN code." };
-  }
-
+  const cust = customer as Record<string, unknown>;
   const subtotal = parsedItems.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
   const deliveryFee = 0;
 
   return {
     ok: true,
     order: {
-      customer: { name, email, phone, address, city, state, pin },
+      customer: {
+        name: cleanString(cust.name),
+        email: cleanString(cust.email),
+        phone: normalizePhone(cust.phone) as string,
+        address: cleanString(cust.address),
+        city: cleanString(cust.city),
+        state: cleanString(cust.state),
+        pin: cleanString(cust.pin),
+      },
       items: parsedItems,
       subtotal,
       deliveryFee,

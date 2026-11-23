@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
     payload = JSON.parse(bodyText);
   } catch {
     return NextResponse.json(
-      { error: "Malformed JSON: the request body could not be parsed." },
+      {
+        error: "validation failed",
+        fields: { body: "malformed JSON: the request body could not be parsed" },
+      },
       { status: 400 }
     );
   }
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest) {
   const result = parseOrderPayload(payload);
   if (!result.ok) {
     return NextResponse.json(
-      { error: result.error },
+      { error: result.error, ...(result.fields ? { fields: result.fields } : {}) },
       { status: result.status }
     );
   }

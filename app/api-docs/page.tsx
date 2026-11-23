@@ -131,8 +131,14 @@ Content-Type: application/json
           </table>
         </div>
         <p className="mt-3 text-sm text-bark-soft">
-          Every error response has the shape{" "}
-          <code className="font-mono">{`{ "error": "message" }`}</code>.
+          Every 400 response reports all failing fields at once, in the shape{" "}
+          <code className="font-mono">{`{ "error": "validation failed", "fields": { "customer.email": "invalid email", "items.0.variant": "unknown variant ..." } }`}</code>.
+          The <code className="font-mono">fields</code> keys use dotted paths:{" "}
+          <code className="font-mono">customer.&lt;field&gt;</code> and{" "}
+          <code className="font-mono">items.&lt;index&gt;.&lt;field&gt;</code>.
+          A 415 (wrong Content-Type) and 405 (list) keep the plain{" "}
+          <code className="font-mono">{`{ "error": "message" }`}</code> shape.
+          Bad input never produces a 500.
         </p>
       </section>
 
